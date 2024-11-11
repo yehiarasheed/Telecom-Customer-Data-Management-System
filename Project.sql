@@ -65,9 +65,9 @@ BEGIN
 	CREATE TABLE Process_Payment(
 	paymentID int PRIMARY KEY IDENTITY(1,1),
 	planID int FOREIGN KEY REFERENCES Service_Plan(planID),
-    remaining_balance AS dbo.Process_PaymentF(paymentID,planID),
-    extra_amount AS dbo.Process_PaymentF(paymentID,planID),
-    FOREIGN KEY (paymentID) REFERENCES Payment(paymentID))
+        remaining_balance AS dbo.Process_PaymentF(paymentID,planID),
+        extra_amount AS dbo.Process_PaymentF(paymentID,planID),
+        FOREIGN KEY (paymentID) REFERENCES Payment(paymentID))
 
 	CREATE TABLE Wallet(
 	walletID int PRIMARY KEY IDENTITY(1,1),
