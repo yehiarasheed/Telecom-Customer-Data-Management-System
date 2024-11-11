@@ -1,4 +1,4 @@
-﻿CREATE DATABASE Telecom_Team_64
+CREATE DATABASE Telecom_Team_64
 
 GO
 
@@ -36,10 +36,11 @@ BEGIN
 	description varchar(50))
 
 	CREATE TABLE Subscription(
-	mobileNo char(11) PRIMARY KEY,
-	planID int PRIMARY KEY IDENTITY(1,1),
-	subscription_date date,
-	status varchar(50),
+	mobileNo CHAR(11),
+        planID INT,
+        subscription_date DATE,
+        status VARCHAR(50),
+        PRIMARY KEY (mobileNo, planID),
 	FOREIGN KEY (mobileNo) references Customer_Account(mobileNo),
 	FOREIGN KEY (planID) references Service_Plan(planID))
 
@@ -64,24 +65,8 @@ BEGIN
 	CREATE TABLE Process_Payment(
 	paymentID int PRIMARY KEY IDENTITY(1,1),
 	planID int FOREIGN KEY REFERENCES Service_Plan(planID),
-    remaining_balance AS (
-        CASE 
-            WHEN (SELECT amount FROM Payment WHERE Payment.paymentID = Process_Payment.paymentID) < 
-                 (SELECT price FROM Service_Plan WHERE Service_Plan.planID = Process_Payment.planID)
-            THEN (SELECT price FROM Service_Plan WHERE Service_Plan.planID = Process_Payment.planID) - 
-                 (SELECT amount FROM Payment WHERE Payment.paymentID = Process_Payment.paymentID)
-			ELSE 0
-		END
-    ),
-    extra_amount AS (
-        CASE 
-            WHEN (SELECT amount FROM Payment WHERE Payment.paymentID = Process_Payment.paymentID) > 
-                 (SELECT price FROM Service_Plan WHERE Service_Plan.planID = Process_Payment.planID)
-            THEN (SELECT amount FROM Payment WHERE Payment.paymentID = Process_Payment.paymentID) - 
-                 (SELECT price FROM Service_Plan WHERE Service_Plan.planID = Process_Payment.planID)
-			ELSE 0
-		END
-    ),
+    remaining_balance AS dbo.Process_PaymentF(paymentID,planID),
+    extra_amount AS dbo.Process_PaymentF(paymentID,planID),
     FOREIGN KEY (paymentID) REFERENCES Payment(paymentID))
 
 	CREATE TABLE Wallet(
@@ -93,13 +78,14 @@ BEGIN
 	mobileNo char(11))
 
 	CREATE TABLE Transfer_money(
-	walletID1 int PRIMARY KEY IDENTITY(1,1),
-	walletID2 int PRIMARY KEY IDENTITY(1,1),
-	transfer_id int PRIMARY KEY IDENTITY(1,1),
+	walletID1 int,
+	walletID2 int,
+	transfer_id int IDENTITY(1,1),
+	PRIMARY KEY(walletID1,walletID2,transfer_id),
 	amount decimal(10,2),
 	transfer_date date,
-	walletID1 int FOREIGN KEY references Wallet(walletID),
-	walletID2 int FOREIGN KEY references Wallet(walletID))
+	FOREIGN KEY (walletID1) references Wallet(walletID),
+	FOREIGN KEY (walletID2) references Wallet(walletID))
 
 	CREATE TABLE Benefits(
 	benefitID int PRIMARY KEY IDENTITY(1,1),
@@ -109,33 +95,37 @@ BEGIN
 	mobileNo char(11) FOREIGN KEY references Customer_Account(mobileNo))
 
 	CREATE TABLE Points_Group(
-	pointID int PRIMARY KEY IDENTITY(1,1),
-	benefitID int PRIMARY KEY IDENTITY(1,1),
+	pointID int IDENTITY(1,1),
+	benefitID int,
+	PRIMARY KEY(pointID,benefitID),
 	pointsAmount int,
-	benefitID int FOREIGN KEY references Benefits(benefitID),
+	FOREIGN KEY (benefitID) references Benefits(benefitID),
 	PaymentID int FOREIGN KEY references Payment(PaymentID))
 
 	CREATE TABLE Exclusive_Offer(
-	OfferID int PRIMARY KEY IDENTITY(1,1),
-	benefitID int PRIMARY KEY IDENTITY(1,1),
+	OfferID int IDENTITY(1,1),
+	benefitID int,
+	PRIMARY KEY(OfferID,benefitID),
 	internet_offered int,
 	SMS_offered int,	
 	minutes_offered int,
-	benefitID int FOREIGN KEY references Benefits(benefitID))
+	FOREIGN KEY (benefitID) references Benefits(benefitID))
 
 	CREATE TABLE Cashback(
-	CashbackID int PRIMARY KEY IDENTITY(1,1),
-	benefitID int PRIMARY KEY IDENTITY(1,1),
+	CashbackID int IDENTITY(1,1),
+	benefitID int,
+	PRIMARY KEY(CashbackID,benefitID),
 	walletID int FOREIGN KEY references Wallet(walletID),
 	amount int,
 	credit_date date,
-	benefitID int FOREIGN KEY references Benefits(benefitID))
+	FOREIGN KEY(benefitID) references Benefits(benefitID))
 
 	CREATE TABLE Plan_Provides_Benefits(
-	benefitID int PRIMARY KEY IDENTITY(1,1),
-	planID int PRIMARY KEY IDENTITY(1,1),
-	benefitID int FOREIGN KEY references Benefits(benefitID),
-	planID int FOREIGN KEY references Service_Plan(planID))
+	benefitID int,
+	planID int,
+	PRIMARY KEY(benefitID,planID),
+	FOREIGN KEY (benefitID) references Benefits(benefitID),
+	FOREIGN KEY (planID) references Service_Plan(planID))
 
 	CREATE TABLE Shop(
 	shopID int PRIMARY KEY IDENTITY(1,1),
@@ -146,13 +136,13 @@ BEGIN
 	shopID int PRIMARY KEY IDENTITY(1,1),
 	address varchar(50),
 	working_hours varchar(50),
-	shopID int FOREIGN KEY references Shop(shopID))
+	FOREIGN KEY (shopID) references Shop(shopID))
 
 	CREATE TABLE E_shop(
 	shopID int PRIMARY KEY IDENTITY(1,1),
 	URL varchar(50),
 	rating int,
-	shopID int FOREIGN KEY references Shop(shopID))
+	FOREIGN KEY (shopID) references Shop(shopID))
 
 	CREATE TABLE Voucher(
 	voucherID int PRIMARY KEY IDENTITY(1,1),
@@ -164,16 +154,32 @@ BEGIN
 	redeem_date date)
 
 	CREATE TABLE Technical_Support_Ticket(
-	ticketID int PRIMARY KEY IDENTITY(1,1),
-	mobileNo char(11) PRIMARY KEY,
+	ticketID int IDENTITY(1,1),
+	mobileNo char(11),
+	PRIMARY KEY(ticketID,mobileNo),
 	Issue_description varchar(50),
 	priority_level int,
 	status varchar(50),
-	mobileNo char(11) FOREIGN KEY references Customer_Account(mobileNo))
+	FOREIGN KEY (mobileNo) references Customer_Account(mobileNo))
 END
 GO
 
 EXEC createAllTables
+DROP PROCEDURE createAllTables
+
+GO
+CREATE FUNCTION Process_PaymentF(@paymentID int,@planID int)
+returns float
+AS
+BEGIN
+DECLARE @out float,@amount int,@price int
+set @amount=(SELECT amount FROM Payment WHERE Payment.paymentID = @paymentID)
+set @price=(SELECT price FROM Service_Plan WHERE Service_Plan.planID = @planID)
+if(@amount>@price)
+set @out=@amount-@price
+else set @out=@price-@amount
+return @out
+END
 
 GO
 CREATE PROCEDURE dropAllTables
@@ -202,3 +208,23 @@ END
 GO
 
 EXEC dropAllTables
+
+GO
+CREATE PROCEDURE Account_Plan
+AS
+BEGIN
+SELECT * FROM Customer_Account c inner join Subscription s on c.mobileNo=s.mobileNo inner join Service_Plan sp on s.planID=sp.planID
+END
+GO
+
+EXEC Account_Plan
+
+GO
+CREATE PROCEDURE Benefits_Account
+@MobileNo char(11),
+@planID int
+AS
+BEGIN
+DELETE FROM Benefits WHERE Benefits.benefitID in (select benefitID from Subscription s inner join Benefits b on s.mobileNo=b.mobileNo where s.mobileNo=@MobileNo and s.planID=@planID)
+END
+GO
